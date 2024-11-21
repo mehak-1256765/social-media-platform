@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Sign Up</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .form-container {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .form-container.active {
+      display: block;
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+
+    .success {
+      color: green;
+      margin-top: 10px;
+    }
+
+    .user-list {
+      margin-top: 20px;
+    }
+
+    .user-list li {
+      list-style: none;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome</h1>
+    <button id="showLogin">Login</button>
+    <button id="showSignup">Sign Up</button>
+
+    <!-- Login Form -->
+    <div id="loginFormContainer" class="form-container">
+      <h2>Login</h2>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email" required><br>
+        <input type="password" id="loginPassword" placeholder="Password" required><br>
+        <button type="submit">Log In</button>
+        <div id="loginError" class="error"></div>
+        <div id="loginSuccess" class="success"></div>
+      </form>
+    </div>
+
+    <!-- Sign-Up Form -->
+    <div id="signupFormContainer" class="form-container">
+      <h2>Sign Up</h2>
+      <form id="signupForm">
+        <input type="text" id="signupName" placeholder="Name" required><br>
+        <input type="email" id="signupEmail" placeholder="Email" required><br>
+        <input type="password" id="signupPassword" placeholder="Password" required><br>
+        <button type="submit">Sign Up</button>
+        <div id="signupError" class="error"></div>
+        <div id="signupSuccess" class="success"></div>
+      </form>
+    </div>
+
+    <!-- User List -->
+    <div class="user-list">
+      <!-- <h3>Users</h3> -->
+      <ul id="userList"></ul>
+    </div> 
+  </div>
+
+  <script>
+    const loginForm = document.getElementById("loginForm");
+    const signupForm = document.getElementById("signupForm");
+    const loginContainer = document.getElementById("loginFormContainer");
+    const signupContainer = document.getElementById("signupFormContainer");
+
+    const loginError = document.getElementById("loginError");
+    const loginSuccess = document.getElementById("loginSuccess");
+    const signupError = document.getElementById("signupError");
+    const signupSuccess = document.getElementById("signupSuccess");
+
+    // Toggle forms
+    document.getElementById("showLogin").addEventListener("click", () => {
+      loginContainer.classList.add("active");
+      signupContainer.classList.remove("active");
+    });
+
+    document.getElementById("showSignup").addEventListener("click", () => {
+      signupContainer.classList.add("active");
+      loginContainer.classList.remove("active");
+    });
+
+    // Login Form Submission
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+
+      loginError.textContent = "";
+      loginSuccess.textContent = "";
+
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          loginSuccess.textContent = "Login successful!";
+          localStorage.setItem("token", result.token); // Save token in localStorage
+          window.location.href = "/dashboard.html"; // Redirect after login
+          fetchUserList(); // Fetch the user list after successful login
+        } else {
+          loginError.textContent = result.message;
+        }
+      } catch (err) {
+        loginError.textContent = "An error occurred. Please try again.";
+      }
+    });
+
+    // Sign-Up Form Submission
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("signupName").value;
+      const email = document.getElementById("signupEmail").value;
+      const password = document.getElementById("signupPassword").value;
+
+      signupError.textContent = "";
+      signupSuccess.textContent = "";
+
+      try {
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          signupSuccess.textContent = "Sign up successful! Please log in.";
+        } else {
+          signupError.textContent = result.message;
+        }
+      } catch (err) {
+        signupError.textContent = "An error occurred. Please try again.";
+      }
+    });
+
+    // Fetch user list after successful login
+    const fetchUserList = async () => {
+      try {
+        const token = localStorage.getItem("token"); // Get token from localStorage
+        const response = await fetch("/api/users", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`, // Add the token to headers
+          },
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          const userList = document.getElementById("userList");
+          userList.innerHTML = ''; // Clear any existing content
+          result.users.forEach(user => {
+            const userItem = document.createElement("li");
+            userItem.innerHTML = `${user.name} (${user.email}) <button onclick="sendRequest('${user._id}')">Send Request</button>`;
+            userList.appendChild(userItem);
+          });
+        } else {
+          console.log(result.message);
+        }
+      } catch (err) {
+        console.log("Error fetching user list: ", err);
+      }
+    };
+
+    // Send request to a user
+    const sendRequest = async (userId) => {
+      try {
+        const token = localStorage.getItem("token"); // Get token from localStorage
+        const response = await fetch(`/api/users/${userId}/sendRequest`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          alert("Request sent successfully!");
+        } else {
+          alert(result.message);
+        }
+      } catch (err) {
+        console.log("Error sending request: ", err);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .dashboard {
+      padding: 20px;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    li {
+      padding: 5px 0;
+    }
+    .error {
+      color: red;
+    }
+    .icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+    .posts, .comments {
+      margin-top: 20px;
+    }
+    .post, .comment {
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+      padding: 10px;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <h1>Dashboard</h1>
+
+    <h2>Users</h2>
+    <ul id="users-list">
+      <li>Loading...</li>
+    </ul>
+
+    <h2>Friend Requests</h2>
+    <ul id="friend-requests-list">
+      <li>Loading...</li>
+    </ul>
+
+    <h2>Posts</h2>
+    <div id="posts-section" class="posts">
+      <div>Loading posts...</div>
+    </div>
+
+    <p id="error-message" class="error"></p>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const errorMessage = document.getElementById("error-message");
+
+      // Get the token from localStorage
+      const token = localStorage.getItem("token");
+      if (!token) {
+        errorMessage.textContent = "Error: You are not logged in. Please log in first.";
+        return;
+      }
+
+      // Fetch and display users
+      fetch("/api/user", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch users. Check your authentication.");
+          }
+          return response.json();
+        })
+        .then((users) => {
+          const usersList = document.getElementById("users-list");
+          usersList.innerHTML = ""; // Clear placeholder
+          if (users.length > 0) {
+            users.forEach((user) => {
+              const li = document.createElement("li");
+              li.textContent = user.name;
+              usersList.appendChild(li);
+            });
+          } else {
+            usersList.innerHTML = "<li>No users found</li>";
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+          errorMessage.textContent = error.message;
+        });
+
+      // Fetch and display friend requests
+      fetch("/api/friendRequests", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch friend requests. Check your authentication.");
+          }
+          return response.json();
+        })
+        .then((requests) => {
+          const friendRequestsList = document.getElementById("friend-requests-list");
+          friendRequestsList.innerHTML = ""; // Clear placeholder
+          if (requests.length > 0) {
+            requests.forEach((request) => {
+              const li = document.createElement("li");
+              li.innerHTML = `<img src="request-icon.png" alt="request icon" class="icon"> ${request.senderName} sent you a friend request.`;
+              friendRequestsList.appendChild(li);
+            });
+          } else {
+            friendRequestsList.innerHTML = "<li>No friend requests</li>";
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+          errorMessage.textContent = error.message;
+        });
+
+      // Get User Feed with Posts and Comments
+      const getUserFeed = async () => {
+        try {
+          // Decode token to get the userId from the payload (JWT contains user info)
+          const decodedToken = JSON.parse(atob(token.split(".")[1])); // Decode the token
+          const userId = decodedToken.id; // Assuming 'id' is stored in the token payload
+
+          const response = await fetch(`/api/feed/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch the feed');
+          }
+          const feed = await response.json();
+          displayPosts(feed);
+        } catch (error) {
+          console.error(error);
+          errorMessage.textContent = "Error fetching user feed.";
+        }
+      };
+
+      // Display posts and their comments
+      const displayPosts = (feed) => {
+        const postsSection = document.getElementById("posts-section");
+        postsSection.innerHTML = ""; // Clear placeholder
+
+        if (feed.posts.length > 0) {
+          feed.posts.forEach((post) => {
+            const postElement = document.createElement("div");
+            postElement.classList.add("post");
+            postElement.innerHTML = ` 
+              <strong>${post.userId.name}</strong> <br>
+              ${post.content} <br>
+              <small>Posted on: ${new Date(post.createdAt).toLocaleString()}</small>
+            `;
+
+            // Display comments if available
+            if (post.comments.length > 0) {
+              const commentsSection = document.createElement("div");
+              commentsSection.classList.add("comments");
+              post.comments.forEach((comment) => {
+                const commentElement = document.createElement("div");
+                commentElement.classList.add("comment");
+                commentElement.innerHTML = `
+                  <strong>${comment.userId.name}</strong>: ${comment.content} <br>
+                  <small>Commented on: ${new Date(comment.createdAt).toLocaleString()}</small>
+                `;
+                commentsSection.appendChild(commentElement);
+              });
+              postElement.appendChild(commentsSection);
+            }
+
+            postsSection.appendChild(postElement);
+          });
+        } else {
+          postsSection.innerHTML = "<div>No posts available</div>";
+        }
+      };
+
+      // Fetch the user feed after token validation
+      getUserFeed(); // Fetch and display the user's feed
+    });
+  </script>
+</body>
+</html>
